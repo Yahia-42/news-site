@@ -176,6 +176,9 @@ footer strong { color:var(--gold-light); }
     </div>
     <div style="width:110px"></div>
   </div>
+  <div style="display:flex;gap:8px;padding:0 24px 12px">
+    <button onclick="location.href='/videos.html'" style="padding:7px 16px;background:var(--gold-light);color:var(--ink);border:none;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🎬 فيديوهات</button>
+  </div>
   <nav class="cat-nav" id="cat-nav"></nav>
 </header>
 
@@ -208,9 +211,10 @@ footer strong { color:var(--gold-light); }
     </div>
     <div id="feed">
       <div class="skel-grid">
-        ${Array(4).fill(0).map(()=>`
-        <div class="skel"><div class="skel-img sh"></div>
-        <div class="skel-body"><div class="skel-line sh"></div><div class="skel-line sh"></div><div class="skel-line sh s"></div></div></div>`).join('')}
+        <div class="skel"><div class="skel-img sh"></div><div class="skel-body"><div class="skel-line sh"></div><div class="skel-line sh"></div><div class="skel-line sh s"></div></div></div>
+        <div class="skel"><div class="skel-img sh"></div><div class="skel-body"><div class="skel-line sh"></div><div class="skel-line sh"></div><div class="skel-line sh s"></div></div></div>
+        <div class="skel"><div class="skel-img sh"></div><div class="skel-body"><div class="skel-line sh"></div><div class="skel-line sh"></div><div class="skel-line sh s"></div></div></div>
+        <div class="skel"><div class="skel-img sh"></div><div class="skel-body"><div class="skel-line sh"></div><div class="skel-line sh"></div><div class="skel-line sh s"></div></div></div>
       </div>
     </div>
   </main>
