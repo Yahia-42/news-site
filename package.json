@@ -1,7 +1,6 @@
 {
   "name": "news-site",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -13,3 +12,4 @@
     "cors": "^2.8.5",
     "node-cron": "^3.0.3"
   }
+}
