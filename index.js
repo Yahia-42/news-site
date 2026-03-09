@@ -312,3 +312,141 @@ app.listen(PORT, async () => {
     console.error('❌ خطأ في الجلب المبدئي:', err.message);
   }
 });
+
+// ===================================================
+// قنوات الفيديو — RSS من قنوات أخبار عربية على YouTube
+// ===================================================
+const VIDEO_CHANNELS = [
+  {
+    name: 'الجزيرة',
+    icon: '📺',
+    rss: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCNye-wNBqNL5ZzHSJdJ6Ozg'
+  },
+  {
+    name: 'العربية',
+    icon: '🎥',
+    rss: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC_t9PkZwKmS7TaGmAm0WBKQ'
+  },
+  {
+    name: 'سكاي نيوز عربية',
+    icon: '📡',
+    rss: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCbmyBBjIHv8ANGdmfCqQNOQ'
+  },
+  {
+    name: 'BBC عربي',
+    icon: '🌐',
+    rss: 'https://www.youtube.com/feeds/videos.xml?channel_id=UCrSRBqYGGN8UvSxNfv-yCeg'
+  }
+];
+
+const videosCache = [];
+const publishedVideoIds = new Set();
+const SITE_URL = process.env.SITE_URL || 'https://charming-imagination-production-0f4c.up.railway.app';
+
+async function fetchVideos() {
+  console.log('🎬 جاري جلب الفيديوهات...');
+  const allVideos = [];
+
+  for (const channel of VIDEO_CHANNELS) {
+    try {
+      const res = await axios.get(channel.rss, { timeout: 10000 });
+      const parser = new xml2js.Parser({ explicitArray: false, trim: true });
+      const result = await parser.parseStringPromise(res.data);
+      const entries = result?.feed?.entry || [];
+      const arr = Array.isArray(entries) ? entries : [entries];
+
+      arr.slice(0, 5).forEach(entry => {
+        const videoId = entry['yt:videoId'] || '';
+        const title = entry.title || '';
+        const published = entry.published || '';
+        const thumbnail = entry['media:group']?.['media:thumbnail']?.['$']?.url || '';
+        const description = entry['media:group']?.['media:description'] || '';
+
+        if (videoId) {
+          allVideos.push({
+            id: videoId,
+            title,
+            channel: channel.name,
+            channelIcon: channel.icon,
+            published,
+            thumbnail,
+            description: description.substring(0, 150) + (description.length > 150 ? '...' : ''),
+            youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+            siteUrl: `${SITE_URL}/video/${videoId}`
+          });
+        }
+      });
+
+      await new Promise(r => setTimeout(r, 500));
+    } catch (err) {
+      console.error(`❌ خطأ في جلب فيديوهات [${channel.name}]:`, err.message);
+    }
+  }
+
+  // رتّب من الأحدث للأقدم
+  allVideos.sort((a, b) => new Date(b.published) - new Date(a.published));
+  videosCache.length = 0;
+  videosCache.push(...allVideos);
+  console.log(`✅ تم جلب ${allVideos.length} فيديو`);
+  return allVideos;
+}
+
+async function publishNewVideos(videos) {
+  const newVideos = videos.filter(v => v.id && !publishedVideoIds.has(v.id));
+  if (!newVideos.length) return;
+
+  console.log(`📤 جاري نشر ${newVideos.length} فيديو على Telegram...`);
+  const toPublish = newVideos.slice(0, 3);
+
+  for (const video of toPublish) {
+    try {
+      const msg = `🎬 *${escapeMarkdown(video.channelIcon + ' ' + video.channel)}*\n\n` +
+        `*${escapeMarkdown(video.title)}*\n\n` +
+        `▶️ [شاهد الفيديو على الموقع](${video.siteUrl})`;
+
+      await axios.post(`${TELEGRAM_API}/sendMessage`, {
+        chat_id: TELEGRAM_CHANNEL,
+        text: msg,
+        parse_mode: 'MarkdownV2',
+        disable_web_page_preview: false
+      });
+
+      publishedVideoIds.add(video.id);
+      console.log(`📤 تم نشر فيديو: ${video.title.substring(0, 40)}...`);
+      await new Promise(r => setTimeout(r, 2000));
+    } catch (err) {
+      console.error('❌ خطأ نشر فيديو Telegram:', err.response?.data?.description || err.message);
+    }
+  }
+}
+
+// ===================================================
+// API: جلب الفيديوهات
+// ===================================================
+app.get('/api/videos', async (req, res) => {
+  if (videosCache.length > 0) {
+    return res.json({ success: true, count: videosCache.length, videos: videosCache });
+  }
+  try {
+    const videos = await fetchVideos();
+    res.json({ success: true, count: videos.length, videos });
+  } catch (err) {
+    res.status(500).json({ error: 'فشل في جلب الفيديوهات' });
+  }
+});
+
+// ===================================================
+// صفحة مشاهدة فيديو معين
+// ===================================================
+app.get('/video/:id', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'video.html'));
+});
+
+// ===================================================
+// تحديث الفيديوهات كل 30 دقيقة
+// ===================================================
+cron.schedule('*/30 * * * *', async () => {
+  console.log('🎬 تحديث تلقائي للفيديوهات...');
+  const videos = await fetchVideos();
+  await publishNewVideos(videos);
+});
